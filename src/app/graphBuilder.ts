@@ -1,5 +1,6 @@
 import dagre from '@dagrejs/dagre'
 import trace from './trace.json'
+import path from 'path'
 
 // Create a new directed graph 
 var g = new dagre.graphlib.Graph();
@@ -29,11 +30,10 @@ g.setEdge("hford",     "lwilson");
 g.setEdge("lwilson",   "kbacon");
 */
 
+const exisitingNodes: { [key: string]: number } = {}
 
 export async function buildGraph() {
     processTrace()
-
-    let exisitingNodes: { [key: string]: number } = {}
 
     for (let i = 0; i < trace.length; i++) {
         if (trace[i].type != 'functionCall') {
@@ -61,6 +61,8 @@ function processTrace() {
     renameConstructor()
 
     renameTLS()
+
+    buildImportMap()
 }
 
 function renameConstructor() {
@@ -91,5 +93,51 @@ function renameTLS() {
         if (trace[i].to == 'TLS') {
             trace[i].to = currentTop
         }
+    }
+}
+
+function buildImportMap() {
+    let imports = []
+
+    for (let i = 0; i < trace.length; i++) {
+        if (trace[i].type != 'import') {
+            continue
+        }
+        if (trace[i].sourcePath?.includes('node_modules') || trace[i].sourcePath?.includes('node:')) {
+            continue
+        }
+        if (trace[i].importPath?.includes('node_modules') || trace[i].importPath?.includes('node:')) {
+            continue
+        }
+        if (trace[i].importPath?.includes('monitor/monitor.js')) {
+            continue
+        }
+
+        imports.push({ sourcePath: stripTmpDirectory(trace[i].sourcePath), importPath: stripTmpDirectory(trace[i].importPath) })
+    }
+
+    for (let i = 0; i < imports.length; i++) {
+        addNode(imports[i].sourcePath)
+        addNode(imports[i].importPath)
+        g.setEdge(imports[i].sourcePath, imports[i].importPath)
+    }
+
+    console.log(imports)
+}
+
+function stripTmpDirectory(dir: string | undefined) {
+    dir = dir || ''
+    let dirPieces = dir.split(path.sep)
+    let tmpIndex = dirPieces.findIndex((a) => {
+        return a.includes('tmp-')
+    })
+
+    return dirPieces.splice(tmpIndex + 1).join(path.sep)
+}
+
+function addNode(name: string) {
+    if (exisitingNodes[name] == undefined) {
+        exisitingNodes[name] = 0
+        g.setNode(name, { label: name, width: 200, height: 100 })
     }
 }
