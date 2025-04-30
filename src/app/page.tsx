@@ -26,9 +26,9 @@ async function populateNodes() {
   let edgeNumber = 0
   graph.edges().forEach((id) => {
     let edgePosition = graph.edge(id)
-    console.log(id)
+    // console.log(id)
     let edge: Edge = {
-      id: 'e-' + edgeNumber,
+      id: 'e-' + edgeNumber + Math.floor(Math.random() * 10),
       source: id.v,
       target: id.w,
     }
