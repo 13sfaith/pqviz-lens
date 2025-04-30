@@ -31,16 +31,15 @@ g.setEdge("lwilson",   "kbacon");
 
 
 export async function buildGraph() {
+    processTrace()
 
     let exisitingNodes: { [key: string]: number } = {}
 
     for (let i = 0; i < trace.length; i++) {
-        if (trace[i].from == 'constructor') {
-            trace[i].from = 'constructorMethod'
+        if (trace[i].type != 'functionCall') {
+            continue
         }
-        if (trace[i].to == 'constructor') {
-            trace[i].to = 'constructorMethod'
-        }
+        
         if (exisitingNodes[trace[i].from] == undefined) {
             exisitingNodes[trace[i].from] = 0
             g.setNode(trace[i].from, { label: trace[i].from, width: 200, height: 100 })
@@ -53,7 +52,44 @@ export async function buildGraph() {
         g.setEdge(trace[i].from, trace[i].to);
     }
 
-    dagre.layout(g);
+    dagre.layout(g, { rankdir: 'LR' });
 
     return g
+}
+
+function processTrace() {
+    renameConstructor()
+
+    renameTLS()
+}
+
+function renameConstructor() {
+    for (let i = 0; i < trace.length; i++) {
+        if (trace[i].from == 'constructor') {
+            trace[i].from = '_constructor'
+        }
+        if (trace[i].to == 'constructor') {
+            trace[i].to = '_constructor'
+        }
+    }
+}
+
+function renameTLS() {
+    let currentTop = 'TLS'
+    for (let i = 0; i < trace.length; i++) {
+        if (trace[i].type == 'moduleStart') {
+            currentTop = trace[i].file || '' 
+        }
+
+        if (trace[i].type != 'functionCall') {
+            continue
+        }
+
+        if (trace[i].from == 'TLS') {
+            trace[i].from = currentTop
+        }
+        if (trace[i].to == 'TLS') {
+            trace[i].to = currentTop
+        }
+    }
 }

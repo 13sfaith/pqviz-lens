@@ -1,5 +1,5 @@
 import styles from "./page.module.css";
-import { ReactFlow, type Node, type Edge } from '@xyflow/react';
+import { ReactFlow, MiniMap, type Node, type Edge } from '@xyflow/react';
 import { buildGraph } from './graphBuilder';
 
 
@@ -28,7 +28,7 @@ async function populateNodes() {
     let edgePosition = graph.edge(id)
     // console.log(id)
     let edge: Edge = {
-      id: 'e-' + edgeNumber + Math.floor(Math.random() * 10),
+      id: 'e-' + edgeNumber + Math.floor(Math.random() * 100),
       source: id.v,
       target: id.w,
     }
@@ -42,7 +42,9 @@ export default function Home() {
   populateNodes()
   return (
     <div style={{ width: '100vw', height: '110vh' }}>
-      <ReactFlow colorMode="dark" nodes={initalNodes} edges={initialEdges} />
+      <ReactFlow colorMode="dark" nodes={initalNodes} edges={initialEdges}>
+        <MiniMap pannable nodeColor={'#ffffff'} /> 
+      </ReactFlow>
     </div>
   );
 }
