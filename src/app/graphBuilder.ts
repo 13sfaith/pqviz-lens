@@ -1,6 +1,7 @@
 import dagre from '@dagrejs/dagre'
 import trace from './trace.json'
 import path from 'path'
+import { assert } from 'console';
 
 // Create a new directed graph 
 var g = new dagre.graphlib.Graph();
@@ -30,28 +31,9 @@ g.setEdge("hford",     "lwilson");
 g.setEdge("lwilson",   "kbacon");
 */
 
-const exisitingNodes: { [key: string]: number } = {}
 
 export async function buildGraph() {
     processTrace()
-
-    for (let i = 0; i < trace.length; i++) {
-        if (trace[i].type != 'functionCall') {
-            continue
-        }
-        
-        if (exisitingNodes[trace[i].from] == undefined) {
-            exisitingNodes[trace[i].from] = 0
-            g.setNode(trace[i].from, { label: trace[i].from, width: 200, height: 100 })
-        }
-        if (exisitingNodes[trace[i].to] == undefined) {
-            exisitingNodes[trace[i].to] = 0
-            g.setNode(trace[i].to, { label: trace[i].to, width: 200, height: 100 })
-        }
-
-        g.setEdge(trace[i].from, trace[i].to);
-    }
-
     dagre.layout(g, { rankdir: 'LR' });
 
     return g
@@ -63,6 +45,8 @@ function processTrace() {
     renameTLS()
 
     buildImportMap()
+
+    buildFunctionCallMap()
 }
 
 function renameConstructor() {
@@ -125,6 +109,18 @@ function buildImportMap() {
     console.log(imports)
 }
 
+function buildFunctionCallMap() {
+    for (let i = 0; i < trace.length; i++) {
+        if (trace[i].type != 'functionCall') {
+            continue
+        }
+
+        addNode(trace[i].from || '')
+        addNode(trace[i].to || '')
+        addEdge(trace[i].from || '', trace[i].to || '')
+    }
+}
+
 function stripTmpDirectory(dir: string | undefined) {
     dir = dir || ''
     let dirPieces = dir.split(path.sep)
@@ -135,9 +131,22 @@ function stripTmpDirectory(dir: string | undefined) {
     return dirPieces.splice(tmpIndex + 1).join(path.sep)
 }
 
+const exisitingNodes: { [key: string]: boolean } = {}
+
 function addNode(name: string) {
-    if (exisitingNodes[name] == undefined) {
-        exisitingNodes[name] = 0
+    if (exisitingNodes[name] != true) {
+        exisitingNodes[name] = true
         g.setNode(name, { label: name, width: 200, height: 100 })
     }
+}
+
+const exisitingEdges: { [key: string]: boolean } = {}
+
+function addEdge(from: string, to: string) {
+    let key = from + to
+    if (exisitingEdges[key] != true) {
+        exisitingEdges[key] = true;
+        g.setEdge(from, to)
+    }
+
 }
