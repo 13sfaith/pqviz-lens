@@ -129,11 +129,16 @@ function buildFunctionCallMap() {
     }
 }
 
-type callTreeNode = {
+type CallTreeNode = {
     name: string,
-    calls: Array<callTreeNode>,
-    parent?: callTreeNode
+    calls: Array<CallTreeNode>,
+    parent?: CallTreeNode
 }
+const CallTreeNode = {
+    newRoot: (name: string): CallTreeNode => ({ name, calls: [] }),
+    new: (name: string, parent: CallTreeNode): CallTreeNode => ({ name, calls: [], parent })
+}
+
 
 type functionCall = {
     type: string,
@@ -145,29 +150,22 @@ type functionCall = {
 }
 
 function buildCallTree(imports: Array<importDefinition>) {
-    let root: callTreeNode = {} as callTreeNode
+    let root: CallTreeNode = {} as CallTreeNode
 
     root.name = imports[0].sourcePath
     root.calls = []
 
-    let currentNode: callTreeNode = {} as callTreeNode
+    let currentNode: CallTreeNode = {} as CallTreeNode
     currentNode = root
 
     for (let i = 0; i < imports.length; i++) {
-        while (currentNode.name != imports[i].sourcePath) {
-            if (currentNode.parent == undefined) {
-                console.log("reached the root...")
-                break
-            }
-
-            currentNode = currentNode.parent
-        }
-
-        if (currentNode.name != imports[i].sourcePath) {
+        let searchResult: WalkUpResult = walkUpTreeTillNodeFound(currentNode, imports[i].sourcePath)
+        if (searchResult.found == false) {
             break
         }
+        currentNode = searchResult.node
 
-        let callNode: callTreeNode = {} as callTreeNode
+        let callNode: CallTreeNode = {} as CallTreeNode
         callNode.name = imports[i].importPath
         callNode.calls = []
         callNode.parent = currentNode
@@ -182,17 +180,29 @@ function buildCallTree(imports: Array<importDefinition>) {
         console.error("unable to find fird called node")
     }
 
-    printCallTree(currentNode) 
     console.log(firstCall)
 
     populateCallTreeWithFunctionCalls(currentNode)
+
+    printCallTree(root) 
 }
 
-function populateCallTreeWithFunctionCalls(currentNode: callTreeNode) {
+function populateCallTreeWithFunctionCalls(currentNode: CallTreeNode) {
     let functionCalls: Array<functionCall> = trace.filter((a) => a.type == 'functionCall') as Array<functionCall>
 
     for (let i = 0; i < functionCalls.length; i++) {
+        if (functionCalls[i].from != currentNode.name) {
+            let searchResult: WalkUpResult = walkUpTreeTillNodeFound(currentNode, functionCalls[i].from)
+            if (searchResult.found == false) {
+                continue
+            }
+            currentNode = searchResult.node
+        }
 
+        let newNode = CallTreeNode.new(functionCalls[i].to, currentNode)
+        currentNode.calls.push(newNode)
+
+        currentNode = newNode
     }
 }
 
@@ -227,7 +237,7 @@ function addEdge(from: string, to: string) {
 }
 
 // Depth first search to find a node
-function findFirstCall(root: callTreeNode, call: string): callTreeNode {
+function findFirstCall(root: CallTreeNode, call: string): CallTreeNode {
     let currentNode = root
 
     if (currentNode.name == call) {
@@ -241,10 +251,39 @@ function findFirstCall(root: callTreeNode, call: string): callTreeNode {
         }
     }
 
-    return { name: "" } as callTreeNode
+    return { name: "" } as CallTreeNode
 }
 
-function printCallTree(root: callTreeNode, level: number = 0) {
+type WalkUpResult = 
+    | { found: true; node: CallTreeNode }
+    | { found: false }
+
+const WalkUpResult = {
+    found: (node: CallTreeNode): WalkUpResult => ({ found: true, node }),
+    notFound: (): WalkUpResult => ({ found: false })
+}
+
+/**
+ * Expects some node in a tree.
+ * Will go up one parent at a time looking for a node of name `name`. 
+ * @param referenceNode The node to start searching from
+ * @param name The desired node name we are searching for
+ * @returns If found, the node named `name`, else undefined node `{ name: "" }`
+ */
+function walkUpTreeTillNodeFound(referenceNode: CallTreeNode, name: string): WalkUpResult {
+    let currentNode = referenceNode
+    while (currentNode.name != name) {
+        if (currentNode.parent == undefined) {
+            console.log("reached the root...")
+            return WalkUpResult.notFound()
+        }
+
+        currentNode = currentNode.parent
+    }
+    return WalkUpResult.found(currentNode)
+}
+
+function printCallTree(root: CallTreeNode, level: number = 0) {
     let current = root
     console.log("-".repeat(level), current.name)
 
