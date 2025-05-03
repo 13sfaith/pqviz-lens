@@ -34,7 +34,8 @@ g.setEdge("lwilson",   "kbacon");
 
 export async function buildGraph() {
     processTrace()
-    dagre.layout(g, { rankdir: 'LR' });
+    // dagre.layout(g, { rankdir: 'LR' });
+    dagre.layout(g);
 
     return g
 }
@@ -44,7 +45,8 @@ function processTrace() {
 
     renameTLS()
 
-    buildImportMap()
+    let imports = buildImportMap()
+    buildCallTree(imports)
 
     buildFunctionCallMap()
 }
@@ -80,8 +82,13 @@ function renameTLS() {
     }
 }
 
-function buildImportMap() {
-    let imports = []
+type importDefinition = {
+    sourcePath: string,
+    importPath: string
+}
+
+function buildImportMap(): Array<importDefinition> {
+    let imports: Array<importDefinition> = []
 
     for (let i = 0; i < trace.length; i++) {
         if (trace[i].type != 'import') {
@@ -107,6 +114,7 @@ function buildImportMap() {
     }
 
     console.log(imports)
+    return imports
 }
 
 function buildFunctionCallMap() {
@@ -118,6 +126,73 @@ function buildFunctionCallMap() {
         addNode(trace[i].from || '')
         addNode(trace[i].to || '')
         addEdge(trace[i].from || '', trace[i].to || '')
+    }
+}
+
+type callTreeNode = {
+    name: string,
+    calls: Array<callTreeNode>,
+    parent?: callTreeNode
+}
+
+type functionCall = {
+    type: string,
+    from: string,
+    to: string,
+    callingFile: string,
+    callingLine: Number,
+    args: Array<any>
+}
+
+function buildCallTree(imports: Array<importDefinition>) {
+    let root: callTreeNode = {} as callTreeNode
+
+    root.name = imports[0].sourcePath
+    root.calls = []
+
+    let currentNode: callTreeNode = {} as callTreeNode
+    currentNode = root
+
+    for (let i = 0; i < imports.length; i++) {
+        while (currentNode.name != imports[i].sourcePath) {
+            if (currentNode.parent == undefined) {
+                console.log("reached the root...")
+                break
+            }
+
+            currentNode = currentNode.parent
+        }
+
+        if (currentNode.name != imports[i].sourcePath) {
+            break
+        }
+
+        let callNode: callTreeNode = {} as callTreeNode
+        callNode.name = imports[i].importPath
+        callNode.calls = []
+        callNode.parent = currentNode
+
+        currentNode.calls.push(callNode)
+        currentNode = callNode
+    }
+
+    let firstCall: functionCall = trace.find((a) => a.type == 'functionCall') as functionCall
+    currentNode = findFirstCall(root, firstCall.from) 
+    if (currentNode.name == "") {
+        console.error("unable to find fird called node")
+    }
+
+    printCallTree(currentNode) 
+    console.log(firstCall)
+
+    populateCallTreeWithFunctionCalls(currentNode)
+}
+
+function populateCallTreeWithFunctionCalls(currentNode: callTreeNode) {
+    let functionCalls: Array<functionCall> = trace.filter((a) => a.type == 'functionCall') as Array<functionCall>
+
+    for (let i = 0; i < functionCalls.length; i++) {
+
     }
 }
 
@@ -149,4 +224,31 @@ function addEdge(from: string, to: string) {
         g.setEdge(from, to)
     }
 
+}
+
+// Depth first search to find a node
+function findFirstCall(root: callTreeNode, call: string): callTreeNode {
+    let currentNode = root
+
+    if (currentNode.name == call) {
+        return currentNode
+    }
+
+    for (let i = 0; i < currentNode.calls.length; i++) {
+        let foundNode = findFirstCall(currentNode.calls[i], call)
+        if (foundNode.name != "") {
+            return foundNode
+        }
+    }
+
+    return { name: "" } as callTreeNode
+}
+
+function printCallTree(root: callTreeNode, level: number = 0) {
+    let current = root
+    console.log("-".repeat(level), current.name)
+
+    for (let i = 0; i < current.calls.length; i++) {
+        printCallTree(current.calls[i], level + 1)
+    }
 }
