@@ -182,7 +182,7 @@ function buildCallTree(imports: Array<importDefinition>) {
 
     populateCallTreeWithFunctionCalls(currentNode)
 
-    // printCallTree(root) 
+    printCallTree(root) 
 }
 
 function populateCallTreeWithFunctionCalls(currentNode: CallTreeNode) {
@@ -192,9 +192,11 @@ function populateCallTreeWithFunctionCalls(currentNode: CallTreeNode) {
         if (functionCalls[i].from != currentNode.name) {
             let searchResult: WalkUpResult = walkUpTreeTillNodeFound(currentNode, functionCalls[i].from)
             if (searchResult.found == false) {
+                /*
                 console.log("search not found: ")
                 console.log("current node: ", currentNode.name)
                 console.log(functionCalls[i])
+                */
                 continue
             }
             currentNode = searchResult.node
