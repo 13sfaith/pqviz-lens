@@ -43,7 +43,7 @@ export default function Home() {
   return (
     <div style={{ width: '100vw', height: '110vh' }}>
       <ReactFlow colorMode="dark" nodes={initalNodes} edges={initialEdges}>
-        <MiniMap pannable nodeColor={'#ffffff'} /> 
+        <MiniMap nodeColor={'#ffffff'} nodeStrokeWidth={3} pannable /> 
       </ReactFlow>
     </div>
   );

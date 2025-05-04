@@ -180,11 +180,9 @@ function buildCallTree(imports: Array<importDefinition>) {
         console.error("unable to find fird called node")
     }
 
-    console.log(firstCall)
-
     populateCallTreeWithFunctionCalls(currentNode)
 
-    printCallTree(root) 
+    // printCallTree(root) 
 }
 
 function populateCallTreeWithFunctionCalls(currentNode: CallTreeNode) {
@@ -194,6 +192,9 @@ function populateCallTreeWithFunctionCalls(currentNode: CallTreeNode) {
         if (functionCalls[i].from != currentNode.name) {
             let searchResult: WalkUpResult = walkUpTreeTillNodeFound(currentNode, functionCalls[i].from)
             if (searchResult.found == false) {
+                console.log("search not found: ")
+                console.log("current node: ", currentNode.name)
+                console.log(functionCalls[i])
                 continue
             }
             currentNode = searchResult.node
@@ -221,7 +222,7 @@ const exisitingNodes: { [key: string]: boolean } = {}
 function addNode(name: string) {
     if (exisitingNodes[name] != true) {
         exisitingNodes[name] = true
-        g.setNode(name, { label: name, width: 200, height: 100 })
+        g.setNode(name, { label: name, width: 150, height: 50 })
     }
 }
 
@@ -266,6 +267,7 @@ const WalkUpResult = {
 /**
  * Expects some node in a tree.
  * Will go up one parent at a time looking for a node of name `name`. 
+ * If the name is a file will also check the children at each node.
  * @param referenceNode The node to start searching from
  * @param name The desired node name we are searching for
  * @returns If found, the node named `name`, else undefined node `{ name: "" }`
@@ -276,6 +278,14 @@ function walkUpTreeTillNodeFound(referenceNode: CallTreeNode, name: string): Wal
         if (currentNode.parent == undefined) {
             console.log("reached the root...")
             return WalkUpResult.notFound()
+        }
+
+        if (currentNode.name.endsWith('.js')) {
+            for (let i = 0; i < currentNode.calls.length; i++) {
+                if (currentNode.calls[i].name == name)  {
+                    return WalkUpResult.found(currentNode.calls[i])
+                }
+            }
         }
 
         currentNode = currentNode.parent
