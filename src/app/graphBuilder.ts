@@ -12,26 +12,6 @@ g.setGraph({});
 // Default to assigning a new object as a label for each new edge.
 g.setDefaultEdgeLabel(function() { return {}; });
 
-// Add nodes to the graph. The first argument is the node id. The second is
-// metadata about the node. In this case we're going to add labels to each of
-// our nodes.
-/*
-g.setNode("kspacey",    { label: "Kevin Spacey",  width: 144, height: 100 });
-g.setNode("swilliams",  { label: "Saul Williams", width: 160, height: 100 });
-g.setNode("bpitt",      { label: "Brad Pitt",     width: 108, height: 100 });
-g.setNode("hford",      { label: "Harrison Ford", width: 168, height: 100 });
-g.setNode("lwilson",    { label: "Luke Wilson",   width: 144, height: 100 });
-g.setNode("kbacon",     { label: "Kevin Bacon",   width: 121, height: 100 });
-
-// Add edges to the graph.
-g.setEdge("kspacey",   "swilliams");
-g.setEdge("swilliams", "kbacon");
-g.setEdge("bpitt",     "kbacon");
-g.setEdge("hford",     "lwilson");
-g.setEdge("lwilson",   "kbacon");
-*/
-
-
 export async function buildGraph() {
     processTrace()
     // dagre.layout(g, { rankdir: 'LR' });
@@ -74,7 +54,7 @@ function renameTLS() {
         }
 
         if (trace[i].from == 'TLS') {
-            trace[i].from = currentTop
+            trace[i].from = trace[i].callingFile
         }
         if (trace[i].to == 'TLS') {
             trace[i].to = currentTop
@@ -141,12 +121,23 @@ const CallTreeNode = {
 
 
 type functionCall = {
-    type: string,
+    type: "functionCall",
     from: string,
     to: string,
     callingFile: string,
     callingLine: Number,
     args: Array<any>
+}
+
+type functionStart = {
+    type: "functionStart",
+    name: string,
+    file: string,
+    line: number
+}
+
+function isFunctionCall(x: any): x is functionCall {
+    return x.type == "functionCall"
 }
 
 function buildCallTree(imports: Array<importDefinition>) {
@@ -186,11 +177,51 @@ function buildCallTree(imports: Array<importDefinition>) {
 }
 
 function populateCallTreeWithFunctionCalls(currentNode: CallTreeNode) {
+
+    for (let i = 0; i < trace.length - 1; i++) {
+        if (trace[i].type != 'functionCall') {
+            continue
+        }
+        if (trace[i+1].type != 'functionStart') {
+            continue
+        }
+        let functionCall = trace[i] as functionCall
+        let functionStart = trace[i+1] as functionStart
+
+        if (functionCall.to == functionStart.name) {
+            continue;
+        }
+        functionCall.to = functionStart.name
+        let lineNumber = functionStart.line + 1
+
+        /*
+        let currentIndex = i
+        for (; currentIndex < trace.length; currentIndex++) {
+            if (trace[currentIndex].type != 'functionCall') {
+                continue
+            }
+            let currentNode = trace[currentIndex] as functionCall
+            if (currentNode.callingLine != lineNumber) {
+                continue
+            }
+            if (currentNode.from != functionStart.name) {
+                continue
+            }
+            currentNode.from = functionStart.name
+        }
+            */
+    }
+
     let functionCalls: Array<functionCall> = trace.filter((a) => a.type == 'functionCall') as Array<functionCall>
 
     for (let i = 0; i < functionCalls.length; i++) {
-        if (functionCalls[i].from != currentNode.name) {
-            let searchResult: WalkUpResult = walkUpTreeTillNodeFound(currentNode, functionCalls[i].from)
+        if (!isFunctionCall(functionCalls[i])) {
+            continue;
+        }
+        let currentFunction = functionCalls[i] as functionCall
+
+        if (currentFunction.from != currentNode.name) {
+            let searchResult: WalkUpResult = walkUpTreeTillNodeFound(currentNode, currentFunction.from)
             if (searchResult.found == false) {
                 console.log("search not found: ")
                 console.log("current node: ", currentNode.name)
@@ -200,7 +231,7 @@ function populateCallTreeWithFunctionCalls(currentNode: CallTreeNode) {
             currentNode = searchResult.node
         }
 
-        let newNode = CallTreeNode.new(functionCalls[i].to, currentNode)
+        let newNode = CallTreeNode.new(currentFunction.to, currentNode)
         currentNode.calls.push(newNode)
 
         currentNode = newNode
