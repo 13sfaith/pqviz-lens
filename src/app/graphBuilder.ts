@@ -191,25 +191,25 @@ function populateCallTreeWithFunctionCalls(currentNode: CallTreeNode) {
         if (functionCall.to == functionStart.name) {
             continue;
         }
-        functionCall.to = functionStart.name
-        let lineNumber = functionStart.line + 1
+        // functionCall.to = functionStart.name
 
-        /*
+        if (functionStart.name == "get" && functionCall.to.includes('chalk')) {
+            console.log('hello')
+        }
+
         let currentIndex = i
         for (; currentIndex < trace.length; currentIndex++) {
             if (trace[currentIndex].type != 'functionCall') {
                 continue
             }
             let currentNode = trace[currentIndex] as functionCall
-            if (currentNode.callingLine != lineNumber) {
-                continue
-            }
             if (currentNode.from != functionStart.name) {
                 continue
             }
-            currentNode.from = functionStart.name
+            currentNode.from = functionCall.to
+            console.log('goodbye?')
+            console.log(`currentNode.from = ${currentNode.from}, trace[current].from = ${trace[currentIndex].from}`)
         }
-            */
     }
 
     let functionCalls: Array<functionCall> = trace.filter((a) => a.type == 'functionCall') as Array<functionCall>
