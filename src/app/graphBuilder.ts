@@ -49,7 +49,7 @@ function renameTLS() {
             currentTop = trace[i].file || '' 
         }
 
-        if (trace[i].type != 'functionCall') {
+        if (!['functionCall', 'functionReturn'].includes(trace[i].type)) {
             continue
         }
 
@@ -60,6 +60,7 @@ function renameTLS() {
             trace[i].to = currentTop
         }
     }
+    console.log(trace)
 }
 
 type importDefinition = {
@@ -129,6 +130,14 @@ type functionCall = {
     args: Array<any>
 }
 
+type functionReturn = {
+    type: "functionReturn",
+    from: string,
+    to: string,
+    callingFile: string,
+    callingLine: Number,
+}
+
 type functionStart = {
     type: "functionStart",
     name: string,
@@ -138,6 +147,10 @@ type functionStart = {
 
 function isFunctionCall(x: any): x is functionCall {
     return x.type == "functionCall"
+}
+
+function isFunctionReturn(x: any): x is functionReturn {
+    return x.type == "functionReturn"
 }
 
 function buildCallTree(imports: Array<importDefinition>) {
@@ -199,6 +212,12 @@ function populateCallTreeWithFunctionCalls(currentNode: CallTreeNode) {
 
         let currentIndex = i
         for (; currentIndex < trace.length; currentIndex++) {
+            if (isFunctionReturn(trace[currentIndex])) {
+                let returnNode = trace[currentIndex] as functionReturn
+                if (returnNode.from == functionCall.from && returnNode.to == functionCall.to && returnNode.callingLine == functionCall.callingLine) {
+                    break
+                }
+            }
             if (trace[currentIndex].type != 'functionCall') {
                 continue
             }
