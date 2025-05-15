@@ -122,7 +122,7 @@ function buildImportMap(): Array<importDefinition> {
         }
         addNode(imports[i].sourcePath)
         addNode(imports[i].importPath)
-        g.setEdge(imports[i].sourcePath, imports[i].importPath)
+        addEdge(imports[i].sourcePath, imports[i].importPath)
     }
 
     console.log(imports)
