@@ -280,6 +280,9 @@ function populateCallTreeWithFunctionCalls(currentNode: CallTreeNode) {
                 console.log("current node: ", currentNode.name)
                 console.log(functionCalls[i])
                 let newFunctionCall = createCorrectFunctionCall(functionCalls[i])
+                addNode(newFunctionCall.from)
+                addNode(newFunctionCall.to)
+                addEdge(newFunctionCall.from, newFunctionCall.to)
                 functionCalls.splice(i, 0, newFunctionCall) 
                 i--
                 continue
