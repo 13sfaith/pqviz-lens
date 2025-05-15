@@ -1,8 +1,24 @@
-import dagre from '@dagrejs/dagre'
-import trace from './trace.json'
-import path from 'path'
-import { assert } from 'console';
+type TraceType = {
+    type: string,
+    name?: string,
+    from?: string,
+    to?: string,
+    callingFile?: string,
+    file?: string,
+    callingLine?: number,
+    line?: number,
+    args?: Array<string>,
+    sourcePath?: string,
+    importPath?: string,
+    index: number,
+}
 
+import dagre from '@dagrejs/dagre'
+import importedTrace from './trace.json' 
+import path from 'path'
+import { assert, error } from 'console';
+
+const trace = importedTrace as Array<TraceType>
 // Create a new directed graph 
 var g = new dagre.graphlib.Graph();
 
@@ -21,6 +37,9 @@ export async function buildGraph() {
 }
 
 function processTrace() {
+    addTraceIndex()
+    console.log(trace)
+
     renameConstructor()
 
     renameTLS()
@@ -29,6 +48,12 @@ function processTrace() {
     buildCallTree(imports)
 
     buildFunctionCallMap()
+}
+
+function addTraceIndex() {
+    for (let i = 0; i < trace.length; i++) {
+        trace[i].index = i
+    }
 }
 
 function renameConstructor() {
@@ -60,7 +85,6 @@ function renameTLS() {
             trace[i].to = currentTop
         }
     }
-    console.log(trace)
 }
 
 type importDefinition = {
@@ -88,7 +112,14 @@ function buildImportMap(): Array<importDefinition> {
         imports.push({ sourcePath: stripTmpDirectory(trace[i].sourcePath), importPath: stripTmpDirectory(trace[i].importPath) })
     }
 
+    if (imports[0].sourcePath == '') {
+        imports[0].sourcePath = 'Entry'
+    }
+
     for (let i = 0; i < imports.length; i++) {
+        if (imports[i].sourcePath == '' || imports[i].importPath == '') {
+            throw error('Blank source path or import path on import', imports[i])
+        }
         addNode(imports[i].sourcePath)
         addNode(imports[i].importPath)
         g.setEdge(imports[i].sourcePath, imports[i].importPath)
@@ -126,8 +157,9 @@ type functionCall = {
     from: string,
     to: string,
     callingFile: string,
-    callingLine: Number,
-    args: Array<any>
+    callingLine: number,
+    args: Array<any>,
+    index: number
 }
 
 type functionReturn = {
@@ -135,7 +167,8 @@ type functionReturn = {
     from: string,
     to: string,
     callingFile: string,
-    callingLine: Number,
+    callingLine: number,
+    index: number
 }
 
 type functionStart = {
@@ -143,6 +176,7 @@ type functionStart = {
     name: string,
     file: string,
     line: number
+    index: number
 }
 
 function isFunctionCall(x: any): x is functionCall {
@@ -186,7 +220,7 @@ function buildCallTree(imports: Array<importDefinition>) {
 
     populateCallTreeWithFunctionCalls(currentNode)
 
-    // printCallTree(root) 
+    printCallTree(root) 
 }
 
 function populateCallTreeWithFunctionCalls(currentNode: CallTreeNode) {
@@ -245,6 +279,9 @@ function populateCallTreeWithFunctionCalls(currentNode: CallTreeNode) {
                 console.log("search not found: ")
                 console.log("current node: ", currentNode.name)
                 console.log(functionCalls[i])
+                let newFunctionCall = createCorrectFunctionCall(functionCalls[i])
+                functionCalls.splice(i, 0, newFunctionCall) 
+                i--
                 continue
             }
             currentNode = searchResult.node
@@ -255,6 +292,55 @@ function populateCallTreeWithFunctionCalls(currentNode: CallTreeNode) {
 
         currentNode = newNode
     }
+}
+
+function createCorrectFunctionCall(functionCall: functionCall): functionCall {
+    let currentIndex = functionCall.index
+
+    while (currentIndex > 0 && trace[currentIndex].type != 'functionReturn') {
+        currentIndex--;
+    } 
+    if (currentIndex < 0) {
+        throw Error('shoot, we were not able to generate the correct function call')
+    }
+
+    let returnCount = 1
+    let callCount = 0
+
+    for (; currentIndex > 0; currentIndex--) {
+        if (returnCount == callCount) {
+            break
+        }
+        if (trace[currentIndex].type == "functionCall") {
+            callCount++
+        }
+        if (trace[currentIndex].type == "functionReturn") {
+            returnCount++
+        }
+    }
+
+    if (returnCount != callCount) {
+        throw Error("floundered again...")
+    }
+    currentIndex++
+
+    console.log('found correct call: ')
+    console.log(trace[currentIndex])
+
+    let referenceCall = trace[currentIndex] as functionCall
+
+    let ret = {
+        type: 'functionCall',
+        from: referenceCall.to,
+        to: functionCall.from,
+        callingFile: referenceCall.callingFile,
+        callingLine: referenceCall.callingLine,
+        args: referenceCall.args,
+        index: -1,
+    } as functionCall
+
+    return ret
+
 }
 
 function stripTmpDirectory(dir: string | undefined) {
@@ -284,7 +370,6 @@ function addEdge(from: string, to: string) {
         exisitingEdges[key] = true;
         g.setEdge(from, to)
     }
-
 }
 
 // Depth first search to find a node
