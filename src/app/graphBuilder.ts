@@ -13,27 +13,25 @@ type TraceType = {
     index: number,
 }
 
-import dagre from '@dagrejs/dagre'
+import dagre, { graphlib } from '@dagrejs/dagre'
 import importedTrace from './trace.json' 
 import path from 'path'
 import { assert, error } from 'console';
 
 const trace = importedTrace as Array<TraceType>
-// Create a new directed graph 
-var g = new dagre.graphlib.Graph();
 
-// Set an object for the graph label
-g.setGraph({});
+var g: graphlib.Graph;
 
-// Default to assigning a new object as a label for each new edge.
-g.setDefaultEdgeLabel(function() { return {}; });
+export async function buildTraceGraph() {
+    return processTrace()
+}
 
-export async function buildGraph() {
-    processTrace()
-    // dagre.layout(g, { rankdir: 'LR' });
-    console.log(g.nodeCount())
+export async function buildDependencyGraph(root: CallTreeNode) {
+    g = new dagre.graphlib.Graph();
+    g.setGraph({});
+    g.setDefaultEdgeLabel(function() { return {}; });
+    buildFunctionCallMap(root)
     dagre.layout(g);
-
     return g
 }
 
@@ -45,9 +43,9 @@ function processTrace() {
     renameTLS()
 
     let imports = buildImportMap()
-    buildCallTree(imports)
+    let root = buildCallTree(imports)
 
-    buildFunctionCallMap()
+    return root
 }
 
 function addTraceIndex() {
@@ -116,28 +114,17 @@ function buildImportMap(): Array<importDefinition> {
         imports[0].sourcePath = 'Entry'
     }
 
-    for (let i = 0; i < imports.length; i++) {
-        if (imports[i].sourcePath == '' || imports[i].importPath == '') {
-            throw error('Blank source path or import path on import', imports[i])
-        }
-        addNode(imports[i].sourcePath)
-        addNode(imports[i].importPath)
-        addEdge(imports[i].sourcePath, imports[i].importPath)
-    }
-
-    console.log(imports)
     return imports
 }
 
-function buildFunctionCallMap() {
-    for (let i = 0; i < trace.length; i++) {
-        if (trace[i].type != 'functionCall') {
-            continue
-        }
-
-        addNode(trace[i].from || '')
-        addNode(trace[i].to || '')
-        addEdge(trace[i].from || '', trace[i].to || '')
+function buildFunctionCallMap(root: CallTreeNode) {
+    for (let i = 0; i < root.calls.length; i++) {
+        addNode(root.name)
+        addNode(root.calls[i].name)
+        addEdge(root.name, root.calls[i].name)
+    }
+    for (let i = 0; i < root.calls.length; i++) {
+        buildFunctionCallMap(root.calls[i])
     }
 }
 
@@ -187,7 +174,7 @@ function isFunctionReturn(x: any): x is functionReturn {
     return x.type == "functionReturn"
 }
 
-function buildCallTree(imports: Array<importDefinition>) {
+function buildCallTree(imports: Array<importDefinition>): CallTreeNode {
     let root: CallTreeNode = {} as CallTreeNode
 
     root.name = imports[0].sourcePath
@@ -220,7 +207,7 @@ function buildCallTree(imports: Array<importDefinition>) {
 
     populateCallTreeWithFunctionCalls(currentNode)
 
-    printCallTree(root) 
+    return root
 }
 
 function populateCallTreeWithFunctionCalls(currentNode: CallTreeNode) {
@@ -237,11 +224,6 @@ function populateCallTreeWithFunctionCalls(currentNode: CallTreeNode) {
 
         if (functionCall.to == functionStart.name) {
             continue;
-        }
-        // functionCall.to = functionStart.name
-
-        if (functionStart.name == "get" && functionCall.to.includes('chalk')) {
-            console.log('hello')
         }
 
         let currentIndex = i
@@ -260,8 +242,6 @@ function populateCallTreeWithFunctionCalls(currentNode: CallTreeNode) {
                 continue
             }
             currentNode.from = functionCall.to
-            console.log('goodbye?')
-            console.log(`currentNode.from = ${currentNode.from}, trace[current].from = ${trace[currentIndex].from}`)
         }
     }
 
@@ -276,13 +256,7 @@ function populateCallTreeWithFunctionCalls(currentNode: CallTreeNode) {
         if (currentFunction.from != currentNode.name) {
             let searchResult: WalkUpResult = walkUpTreeTillNodeFound(currentNode, currentFunction.from)
             if (searchResult.found == false) {
-                console.log("search not found: ")
-                console.log("current node: ", currentNode.name)
-                console.log(functionCalls[i])
                 let newFunctionCall = createCorrectFunctionCall(functionCalls[i])
-                addNode(newFunctionCall.from)
-                addNode(newFunctionCall.to)
-                addEdge(newFunctionCall.from, newFunctionCall.to)
                 functionCalls.splice(i, 0, newFunctionCall) 
                 i--
                 continue
@@ -326,9 +300,6 @@ function createCorrectFunctionCall(functionCall: functionCall): functionCall {
         throw Error("floundered again...")
     }
     currentIndex++
-
-    console.log('found correct call: ')
-    console.log(trace[currentIndex])
 
     let referenceCall = trace[currentIndex] as functionCall
 
@@ -422,7 +393,6 @@ function walkUpTreeTillNodeFound(referenceNode: CallTreeNode, name: string): Wal
         }
 
         if (currentNode.parent == undefined) {
-            console.log("reached the root...")
             return WalkUpResult.notFound()
         }
 
