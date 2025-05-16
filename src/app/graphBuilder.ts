@@ -31,6 +31,7 @@ g.setDefaultEdgeLabel(function() { return {}; });
 export async function buildGraph() {
     processTrace()
     // dagre.layout(g, { rankdir: 'LR' });
+    console.log(g.nodeCount())
     dagre.layout(g);
 
     return g
@@ -38,7 +39,6 @@ export async function buildGraph() {
 
 function processTrace() {
     addTraceIndex()
-    console.log(trace)
 
     renameConstructor()
 
