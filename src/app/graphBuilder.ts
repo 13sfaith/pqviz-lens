@@ -8,12 +8,16 @@ import CallTreeNode from './types/CallTreeNode';
 const trace = importedTrace as Array<TraceType>
 
 var g: graphlib.Graph;
+var exisitingNodes: { [key: string]: boolean } = {}
+var exisitingEdges: { [key: string]: boolean } = {}
 
 export async function buildTraceGraph() {
     return processTrace()
 }
 
 export async function buildDependencyGraph(root: CallTreeNode) {
+    exisitingNodes = {}
+    exisitingEdges = {}
     g = new dagre.graphlib.Graph();
     g.setGraph({});
     g.setDefaultEdgeLabel(function() { return {}; });
@@ -303,7 +307,6 @@ function stripTmpDirectory(dir: string | undefined) {
     return dirPieces.splice(tmpIndex + 1).join(path.sep)
 }
 
-const exisitingNodes: { [key: string]: boolean } = {}
 
 function addNode(name: string) {
     if (exisitingNodes[name] != true) {
@@ -312,7 +315,6 @@ function addNode(name: string) {
     }
 }
 
-const exisitingEdges: { [key: string]: boolean } = {}
 
 function addEdge(from: string, to: string) {
     let key = from + to
