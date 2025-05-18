@@ -1,22 +1,9 @@
-type TraceType = {
-    type: string,
-    name?: string,
-    from?: string,
-    to?: string,
-    callingFile?: string,
-    file?: string,
-    callingLine?: number,
-    line?: number,
-    args?: Array<string>,
-    sourcePath?: string,
-    importPath?: string,
-    index: number,
-}
-
 import dagre, { graphlib } from '@dagrejs/dagre'
 import importedTrace from './trace.json' 
 import path from 'path'
 import { assert, error } from 'console';
+import TraceType from './types/TraceType';
+import CallTreeNode from './types/CallTreeNode';
 
 const trace = importedTrace as Array<TraceType>
 
@@ -127,17 +114,6 @@ function buildFunctionCallMap(root: CallTreeNode) {
         buildFunctionCallMap(root.calls[i])
     }
 }
-
-type CallTreeNode = {
-    name: string,
-    calls: Array<CallTreeNode>,
-    parent?: CallTreeNode
-}
-const CallTreeNode = {
-    newRoot: (name: string): CallTreeNode => ({ name, calls: [] }),
-    new: (name: string, parent: CallTreeNode): CallTreeNode => ({ name, calls: [], parent })
-}
-
 
 type functionCall = {
     type: "functionCall",

@@ -1,14 +1,17 @@
 import styles from "./page.module.css";
+import Sidebar from "./components/sidebar";
 import { ReactFlow, MiniMap, type Node, type Edge } from '@xyflow/react';
 import { buildTraceGraph, buildDependencyGraph } from './graphBuilder';
+import CallTreeNode from "./types/CallTreeNode";
 
 
 import '@xyflow/react/dist/style.css';
 
 const initalNodes: Node[] = [ ]
 const initialEdges: Edge[] = []
+let root: CallTreeNode = CallTreeNode.newRoot("blank")
 
-async function buildGraph(root) {
+async function buildGraph(root: CallTreeNode) {
   let graph = await buildDependencyGraph(root)
 
   graph.nodes().forEach((id) => {
@@ -37,14 +40,17 @@ async function buildGraph(root) {
 
 async function populateNodes() {
   let traceRoot = await buildTraceGraph()
+  root = traceRoot
 
   buildGraph(traceRoot)
 }
+
 
 export default function Home() {
   populateNodes()
   return (
     <div style={{ width: '100vw', height: '110vh' }}>
+      <Sidebar tree={root}></Sidebar>
       <ReactFlow colorMode="dark" nodes={initalNodes} edges={initialEdges}>
         <MiniMap nodeColor={'#ffffff'} nodeStrokeWidth={3} pannable /> 
       </ReactFlow>
