@@ -1,3 +1,5 @@
+"use client"
+
 import styles from "./page.module.css";
 import Sidebar from "./components/sidebar";
 import { ReactFlow, MiniMap, type Node, type Edge } from '@xyflow/react';
@@ -7,11 +9,14 @@ import CallTreeNode from "./types/CallTreeNode";
 
 import '@xyflow/react/dist/style.css';
 
-const initalNodes: Node[] = [ ]
-const initialEdges: Edge[] = []
+const initalNodes: Node[] = []
+const initalEdges: Edge[] = []
 let root: CallTreeNode = CallTreeNode.newRoot("blank")
 
 async function buildGraph(root: CallTreeNode) {
+  initalNodes.length = 0
+  initalEdges.length = 0
+
   let graph = await buildDependencyGraph(root)
 
   graph.nodes().forEach((id) => {
@@ -34,7 +39,7 @@ async function buildGraph(root: CallTreeNode) {
       target: id.w,
     }
     edgeNumber++;
-    initialEdges.push(edge);
+    initalEdges.push(edge);
   })
 }
 
@@ -45,13 +50,17 @@ async function populateNodes() {
   buildGraph(traceRoot)
 }
 
+async function nodeSelect(node: CallTreeNode) {
+  console.log("node select!")
+  buildGraph(node)
+}
 
 export default function Home() {
   populateNodes()
   return (
     <div style={{ width: '100vw', height: '110vh' }}>
-      <Sidebar tree={root}></Sidebar>
-      <ReactFlow colorMode="dark" nodes={initalNodes} edges={initialEdges}>
+      <Sidebar node={root} onSelect={nodeSelect}></Sidebar>
+      <ReactFlow colorMode="dark" nodes={initalNodes} edges={initalEdges}>
         <MiniMap nodeColor={'#ffffff'} nodeStrokeWidth={3} pannable /> 
       </ReactFlow>
     </div>
