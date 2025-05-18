@@ -179,10 +179,18 @@ function buildCallTree(imports: Array<importDefinition>): CallTreeNode {
         currentNode = callNode
     }
 
-    let firstCall: functionCall = trace.find((a) => a.type == 'functionCall') as functionCall
-    currentNode = findFirstCall(root, firstCall.from) 
-    if (currentNode.name == "") {
-        console.error("unable to find fird called node")
+    let functionCalls: Array<functionCall> = trace.filter((a) => a.type == 'functionCall') as Array<functionCall>
+    for (let i = 0; i < functionCalls.length; i++) {
+        let firstCall: functionCall = functionCalls[i]
+        currentNode = findFirstCall(root, firstCall.from)
+        if (currentNode.name == "") {
+            console.error("unable to find find called node")
+            console.log("First Call Name: ", firstCall.from)
+            console.log("root")
+            console.log(root)
+        } else {
+            break;
+        }
     }
 
     populateCallTreeWithFunctionCalls(currentNode)
