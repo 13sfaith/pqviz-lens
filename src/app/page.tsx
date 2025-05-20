@@ -1,13 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { ReactFlow, MiniMap, type Node, type Edge } from "@xyflow/react"
+import { buildDependencyGraph } from "./graphBuilder"
+import CallTreeNode from "./types/CallTreeNode"
+import { useEffect, useState } from "react"
+import Sidebar from "./components/sidebar"
 import { parse } from 'flatted'
-import styles from "./page.module.css";
-import Sidebar from "./components/sidebar";
-import { ReactFlow, MiniMap, type Node, type Edge } from "@xyflow/react";
-import { buildTraceGraph, buildDependencyGraph } from "./graphBuilder";
-import CallTreeNode from "./types/CallTreeNode";
-import TraceType from "./types/TraceType";
 
 import "@xyflow/react/dist/style.css";
 
