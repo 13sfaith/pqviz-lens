@@ -1,13 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { parse } from 'flatted'
 import styles from "./page.module.css";
 import Sidebar from "./components/sidebar";
 import { ReactFlow, MiniMap, type Node, type Edge } from "@xyflow/react";
 import { buildTraceGraph, buildDependencyGraph } from "./graphBuilder";
 import CallTreeNode from "./types/CallTreeNode";
+import TraceType from "./types/TraceType";
 
 import "@xyflow/react/dist/style.css";
+
 
 export default function Home() {
   const [nodes, setNodes] = useState<Node[]>([]);
@@ -46,8 +49,7 @@ export default function Home() {
     setEdges(newEdges);
   }
 
-  async function populateNodes() {
-    const traceRoot = await buildTraceGraph();
+  async function setTraceRoot(traceRoot: CallTreeNode) {
     setRoot(traceRoot);
     await buildGraph(traceRoot);
   }
@@ -58,7 +60,24 @@ export default function Home() {
   }
 
   useEffect(() => {
-    populateNodes();
+    const socket = new WebSocket('ws://localhost:8080')
+    socket.onopen = () => {
+      console.log('webSocket connected')
+    }
+    socket.onmessage = (event: any) => {
+      let jsonMessage = JSON.parse(event.data)
+      if (jsonMessage.type != 'trace') {
+        return
+      }
+
+      setTraceRoot(parse(jsonMessage.message))
+    }
+    socket.onclose = () => {
+      console.log('WebSocket disconnected');
+    };
+    socket.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
   }, []);
 
   if (!root) return null; // or a spinner/loading UI

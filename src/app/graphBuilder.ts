@@ -244,9 +244,11 @@ function populateCallTreeWithFunctionCalls(currentNode: CallTreeNode) {
         if (currentFunction.from != currentNode.name) {
             let searchResult: WalkUpResult = walkUpTreeTillNodeFound(currentNode, currentFunction.from)
             if (searchResult.found == false) {
-                let newFunctionCall = createCorrectFunctionCall(functionCalls[i])
-                functionCalls.splice(i, 0, newFunctionCall) 
-                i--
+                let newFunctionCall: CreateFunctionCallResult = createCorrectFunctionCall(functionCalls[i])
+                if (newFunctionCall.success == true) {
+                    functionCalls.splice(i, 0, newFunctionCall.functionCall)
+                    i--
+                }
                 continue
             }
             currentNode = searchResult.node
@@ -259,7 +261,16 @@ function populateCallTreeWithFunctionCalls(currentNode: CallTreeNode) {
     }
 }
 
-function createCorrectFunctionCall(functionCall: functionCall): functionCall {
+type CreateFunctionCallResult = 
+    | { success: true; functionCall: functionCall }
+    | { success: false }
+
+const CreateFunctionCallResult = {
+    found: (functionCall: functionCall): CreateFunctionCallResult => ({ success: true, functionCall }),
+    notFound: (): CreateFunctionCallResult => ({ success: false })
+}
+
+function createCorrectFunctionCall(functionCall: functionCall): CreateFunctionCallResult {
     let currentIndex = functionCall.index
 
     while (currentIndex > 0 && trace[currentIndex].type != 'functionReturn') {
@@ -267,6 +278,7 @@ function createCorrectFunctionCall(functionCall: functionCall): functionCall {
     } 
     if (currentIndex < 0) {
         throw Error('shoot, we were not able to generate the correct function call')
+        return CreateFunctionCallResult.notFound()
     }
 
     let returnCount = 1
@@ -285,7 +297,8 @@ function createCorrectFunctionCall(functionCall: functionCall): functionCall {
     }
 
     if (returnCount != callCount) {
-        throw Error("floundered again...")
+        console.error("Result count hack did not work")
+        return CreateFunctionCallResult.notFound()
     }
     currentIndex++
 
@@ -301,8 +314,7 @@ function createCorrectFunctionCall(functionCall: functionCall): functionCall {
         index: -1,
     } as functionCall
 
-    return ret
-
+    return CreateFunctionCallResult.found(ret)
 }
 
 function stripTmpDirectory(dir: string | undefined) {
